@@ -28,3 +28,4 @@ Typecho is released under the GNU General Public License 2.0.
 ## Contributing
 
 Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
+test
