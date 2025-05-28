@@ -1,0 +1,48 @@
+name: Build & Deploy Typecho
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: 构建并推送镜像
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v3
+
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 构建并推送镜像
+        run: |
+          docker build -t ${{ secrets.IMAGE_NAME }}:latest .
+          docker push ${{ secrets.IMAGE_NAME }}:latest
+
+  deploy:
+    name: 部署到 k3s
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v3
+
+      - name: 配置 kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+
+      - name: 安装 kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.27.4'
+
+      - name: 更新 Deployment 镜像并重启
+        run: |
+          kubectl -n ${{ secrets.KUBE_NAMESPACE }} set image deployment/typecho \
+            typecho=${{ secrets.IMAGE_NAME }}:latest
+          kubectl -n ${{ secrets.KUBE_NAMESPACE }} rollout status deployment/typecho --timeout=120s
